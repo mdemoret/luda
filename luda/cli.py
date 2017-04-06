@@ -43,14 +43,16 @@ class DockerVolumeType(click.ParamType):
 ))
 @click.option("--work", type=PathType, default=os.getcwd())
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
+@click.option('--init/--no-init', default=True)
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
 @click.option('--dev', is_flag=True)
+@click.option('--debug', is_flag=True)
 @click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
               default='--rm -ti')
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
-         volume=None):
+def main(docker_args, init, display, docker, dev, debug,
+         docker_run_args=None, work=None, volume=None):
     """Console script for luda.
 
     docker_run_args - The run arguments for docker appended in the begining.
@@ -81,7 +83,7 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
             home_str = Volume(home_path, "/home/{0}".format(user)).string
 
     # prefer nvidia-docker over docker
-    exe = which("nvidia-docker") or "docker"
+    exe = which("nvidia-docker") or which("docker")
     nvargs = [exe, 'run', docker_run_args] + [v.string for v in volume]
 
     work_str = " -v {work}:/work --workdir /work".format(work=work)
@@ -92,6 +94,7 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
                      " --env HOST_GROUP={group}".format(**locals())
 
     cmd = " ".join(nvargs)
+    cmd += " --init" if init else ""
     cmd += bootstrap_str
     cmd += entrypoint_str
     cmd += home_str
@@ -101,10 +104,17 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
     if dev:
         cmd += " --env DEVTOOLS=1"
     cmd += " " + " ".join(docker_args)
-    click.echo(cmd)
+
+    if debug:
+        click.echo(cmd)
+
     subprocess.call(cmd, shell=True)
+
+    # TODO - replace the current process with docker
+    # instead of creating a subprocerss
+    # tokens = shlex.split(cmd)
+    # os.execl(tokens[0], *tokens[0:])
 
 
 if __name__ == "__main__":
     main()
-
